@@ -1,0 +1,200 @@
+<vt-top-nav tab="library" />
+
+<!-- Background blobs -->
+<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+  <div class="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[120px] rounded-full"></div>
+  <div class="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary/5 blur-[120px] rounded-full"></div>
+</div>
+
+<!-- Main canvas background -->
+<main class="pt-24 pb-12 px-6 lg:px-12 max-w-7xl mx-auto min-h-screen">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Large focus card -->
+    <div class="md:col-span-2 aspect-video bg-surface-container-low rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center relative overflow-hidden group">
+      <div class="absolute inset-0 opacity-10 pointer-events-none">
+        <div class="absolute inset-0 bg-gradient-radial from-primary via-transparent to-transparent"></div>
+      </div>
+      <div class="z-10 text-center space-y-4">
+        <div class="w-20 h-20 mx-auto bg-primary-container/20 rounded-full flex items-center justify-center text-primary-container">
+          <span class="material-symbols-outlined" style="font-size:40px">mic</span>
+        </div>
+        <h2 class="font-headline text-3xl font-bold tracking-tight">Ready to Capture</h2>
+        <p class="text-on-surface-variant max-w-xs mx-auto">Start a new broadcast to transcribe and translate in real-time.</p>
+        <button class="px-8 py-3 bg-primary text-on-primary-fixed font-bold rounded-full hover:scale-105 transition-transform">
+          Start New Session
+        </button>
+      </div>
+    </div>
+
+    <!-- Bento stats -->
+    <div class="space-y-6">
+      <div class="p-6 bg-surface-container-high rounded-xl border border-outline-variant/20">
+        <span class="text-xs font-label uppercase tracking-widest text-primary/60">System Status</span>
+        <h3 class="text-xl font-bold mt-2">Active Low Latency</h3>
+        <div class="mt-4 flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>
+          <span class="text-sm text-on-surface-variant">42ms Processing Speed</span>
+        </div>
+      </div>
+      <div class="p-6 bg-surface-container-high rounded-xl border border-outline-variant/20">
+        <span class="text-xs font-label uppercase tracking-widest text-primary/60">Language Model</span>
+        <h3 class="text-xl font-bold mt-2">Lexicon-V4 Eng/Jpn</h3>
+        <p class="mt-2 text-sm text-on-surface-variant">Optimized for technical terminology and fast speech.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- History sidebar -->
+<aside class="fixed right-0 top-0 h-screen w-full md:w-96 bg-neutral-900 z-[60] border-l border-white/10 shadow-[-20px_0_30px_rgba(0,0,0,0.5)] flex flex-col">
+  <!-- Header -->
+  <div class="p-6 border-b border-white/5 flex items-center justify-between mt-16">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg border border-cyan-400/20 bg-cyan-400/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-cyan-400">graphic_eq</span>
+      </div>
+      <div>
+        <h2 class="text-lg font-black text-cyan-400 font-headline uppercase leading-none">Session History</h2>
+        <p class="text-xs text-neutral-500 font-label">The Obsidian Broadcast</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="flex px-4 py-2 bg-neutral-950/50">
+    @for (t of tabs; track t.id) {
+      <button
+        (click)="activeTab.set(t.id)"
+        class="flex-1 flex flex-col items-center py-3 transition-all duration-300 cursor-pointer"
+        [ngClass]="activeTab() === t.id
+          ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-400'
+          : 'text-neutral-500 hover:text-neutral-200'">
+        <span class="material-symbols-outlined mb-1"
+              [style.font-variation-settings]="activeTab() === t.id ? '\'FILL\' 1' : null">{{ t.icon }}</span>
+        <span class="text-[10px] font-bold uppercase tracking-tighter">{{ t.label }}</span>
+      </button>
+    }
+  </nav>
+
+  <!-- Sessions list -->
+  <div class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
+    @for (s of sessions(); track s.id) {
+      <div
+        (click)="selectSession(s.id)"
+        class="p-4 rounded-lg group cursor-pointer transition-all active:scale-[0.98] border"
+        [ngClass]="selectedId() === s.id
+          ? 'bg-white/5 border-cyan-400/30'
+          : 'bg-neutral-800/40 border-white/5 hover:bg-white/5'">
+        <div class="flex justify-between items-start mb-2">
+          <span class="px-2 py-0.5 text-[10px] font-bold rounded uppercase" [class]="badgeClasses(s.sourceLanguage)">{{ s.sourceLanguage }}</span>
+          <span class="text-[10px] text-neutral-500 font-mono">{{ s.capturedAtTime }}</span>
+        </div>
+        <h4 class="font-bold text-on-surface mb-1 group-hover:text-cyan-400 transition-colors">{{ s.title }}</h4>
+        <p class="text-xs text-on-surface-variant line-clamp-2 leading-relaxed">{{ s.preview }}</p>
+        <div class="mt-3 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-neutral-500">
+            <span class="material-symbols-outlined" style="font-size:16px">timer</span>
+            <span class="text-[10px] font-bold">{{ s.durationMin }}</span>
+          </div>
+          <span class="text-[10px] text-neutral-600 font-label">{{ s.capturedAt }}</span>
+        </div>
+      </div>
+    } @empty {
+      <div class="text-center py-12 text-neutral-500 text-sm">No sessions yet.</div>
+    }
+  </div>
+
+  <!-- Footer -->
+  <div class="p-6 border-t border-white/5 bg-neutral-950/40 space-y-4">
+    <button class="w-full py-3 bg-cyan-500 text-neutral-950 font-black rounded uppercase tracking-tighter hover:bg-cyan-400 transition-colors flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">add_circle</span>
+      New Session
+    </button>
+    <button (click)="clearAll()" class="w-full text-center py-2 text-error text-xs font-bold uppercase tracking-widest hover:text-error/80 transition-colors opacity-60 hover:opacity-100">
+      Clear All History
+    </button>
+  </div>
+</aside>
+
+<!-- Modal: session review -->
+@if (modalOpen() && selected(); as sel) {
+  <div class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-surface-dim/80 backdrop-blur-sm" (click)="closeModal()">
+    <div (click)="$event.stopPropagation()"
+         class="bg-surface-container-low border border-outline-variant/30 w-full max-w-4xl max-h-[90vh] rounded-xl flex flex-col shadow-[0_0_100px_rgba(47,217,244,0.15)] overflow-hidden">
+      <!-- Header -->
+      <div class="px-8 py-6 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-high">
+        <div class="flex items-center gap-6">
+          <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+            <span class="material-symbols-outlined" style="font-size:24px; font-variation-settings: 'FILL' 1;">description</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl font-bold font-headline">{{ sel.title }}</h2>
+              <button class="text-neutral-500 hover:text-white transition-colors">
+                <span class="material-symbols-outlined" style="font-size:18px">edit</span>
+              </button>
+            </div>
+            <p class="text-sm text-on-surface-variant">Captured on {{ sel.capturedAt }} • {{ sel.durationMin }} Duration</p>
+          </div>
+        </div>
+        <button class="p-2 text-neutral-400 hover:bg-white/5 rounded-lg transition-colors" (click)="closeModal()">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Dual column transcript -->
+      <div class="flex-1 overflow-hidden flex flex-col md:flex-row">
+        <!-- Source -->
+        <div class="flex-1 overflow-y-auto p-8 border-r border-outline-variant/10 space-y-8 no-scrollbar">
+          <div class="flex items-center gap-3 border-b border-primary/20 pb-2 mb-6">
+            <span class="text-xs font-label uppercase tracking-widest text-primary">Source: {{ sel.sourceLanguage }}</span>
+          </div>
+          <div class="space-y-6">
+            @for (line of sel.source; track $index) {
+              <div>
+                <span class="text-[10px] font-mono text-primary/40 block mb-1">{{ line.timestamp }}</span>
+                <p class="text-on-surface leading-relaxed text-lg">{{ line.text }}</p>
+              </div>
+            }
+          </div>
+        </div>
+        <!-- Translation -->
+        <div class="flex-1 overflow-y-auto p-8 bg-surface-container-lowest/50 space-y-8 no-scrollbar">
+          <div class="flex items-center gap-3 border-b border-secondary/20 pb-2 mb-6">
+            <span class="text-xs font-label uppercase tracking-widest text-secondary">Translated: {{ sel.targetLanguage }}</span>
+          </div>
+          <div class="space-y-6">
+            @for (line of sel.translation; track $index) {
+              <div>
+                <span class="text-[10px] font-mono text-secondary/40 block mb-1">{{ line.timestamp }}</span>
+                <p class="text-secondary-fixed-dim leading-relaxed text-lg">{{ line.text }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Action bar -->
+      <div class="px-8 py-6 bg-surface-container border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <button class="px-6 py-2.5 bg-primary-container text-on-primary-container font-bold rounded-lg flex items-center gap-2 hover:brightness-110 transition-all">
+            <span class="material-symbols-outlined">download</span>
+            Re-download
+          </button>
+          <button class="px-4 py-2.5 border border-outline-variant text-on-surface-variant font-bold rounded-lg flex items-center gap-2 hover:bg-white/5 transition-all">
+            <span class="material-symbols-outlined">share</span>
+            Share
+          </button>
+        </div>
+        <div class="flex items-center gap-4">
+          <button class="text-on-surface-variant hover:text-white transition-colors text-sm font-bold">Rename Session</button>
+          <div class="h-4 w-px bg-outline-variant/50"></div>
+          <button class="text-error font-bold flex items-center gap-2 hover:brightness-125 transition-all text-sm uppercase tracking-widest">
+            <span class="material-symbols-outlined" style="font-size:18px">delete</span>
+            Delete Session
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
