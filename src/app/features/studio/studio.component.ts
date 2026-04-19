@@ -73,6 +73,7 @@ export class StudioComponent implements OnDestroy {
   private timerId?: number;
   private sessionStartMs = 0;
   private pausedElapsedMs = 0;
+  private acceptingChunks = false;
 
   constructor() {
     // Each time a final source chunk is committed, translate it and append.
@@ -117,7 +118,8 @@ export class StudioComponent implements OnDestroy {
     this.speech.reset();
     this.translatedChunks.set([]);
 
-    await this.acquireMicAndStart();
+    const ok = await this.acquireMicAndStart();
+    if (!ok) return;
 
     // Session timer starts fresh
     this.sessionStartMs = Date.now();
@@ -126,6 +128,7 @@ export class StudioComponent implements OnDestroy {
   }
 
   pauseRecording(): void {
+    this.acceptingChunks = false;
     this.pausedElapsedMs = Date.now() - this.sessionStartMs;
     this.speech.stop();
     this.teardownAnalyser();
@@ -140,16 +143,18 @@ export class StudioComponent implements OnDestroy {
 
   async resumeRecording(): Promise<void> {
     this.micError.set(null);
+
+    const ok = await this.acquireMicAndStart();
+    if (!ok) return; // paused stays true — user can retry Continue
+
     this.paused.set(false);
-
-    await this.acquireMicAndStart();
-
     // Resume timer from where it was paused
     this.sessionStartMs = Date.now() - this.pausedElapsedMs;
     this.timerId = window.setInterval(() => this.tickTimer(), 1000);
   }
 
-  private async acquireMicAndStart(): Promise<void> {
+  /** Returns true on success, false on mic acquisition failure. */
+  private async acquireMicAndStart(): Promise<boolean> {
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
@@ -159,15 +164,17 @@ export class StudioComponent implements OnDestroy {
           ? 'Microphone permission denied. Grant access in your browser and retry.'
           : `Could not access microphone: ${msg}`,
       );
-      this.paused.set(true);
-      return;
+      return false;
     }
     this.setupAnalyser(this.micStream);
     const sourceLang = findLanguageByLabel(this.prefs.sourceLangLabel())?.bcp47 ?? 'en-US';
+    this.acceptingChunks = true;
     this.speech.start(sourceLang);
+    return true;
   }
 
   stopRecording(): void {
+    this.acceptingChunks = false;
     this.speech.stop();
     this.teardownAnalyser();
     this.micStream?.getTracks().forEach((t) => t.stop());
@@ -220,6 +227,7 @@ export class StudioComponent implements OnDestroy {
   // ---------- Internals ----------
 
   private translateChunk(chunk: string): void {
+    if (!this.acceptingChunks) return;
     const src = findLanguageByLabel(this.prefs.sourceLangLabel())?.short ?? 'en';
     const tgt = findLanguageByLabel(this.prefs.targetLangLabel())?.short ?? 'es';
     if (src === tgt) {
