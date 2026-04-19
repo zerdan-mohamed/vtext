@@ -44,6 +44,9 @@ export class StudioComponent implements OnDestroy {
   /** True while mic + recognizer are active. */
   readonly recording = computed(() => this.speech.state() === 'listening');
 
+  /** True when recording was paused (text preserved). */
+  readonly paused = signal(false);
+
   /** Formatted session timer (HH:MM:SS). */
   readonly sessionTime = signal('00:00:00');
 
@@ -69,6 +72,8 @@ export class StudioComponent implements OnDestroy {
   private rafId?: number;
   private timerId?: number;
   private sessionStartMs = 0;
+  private pausedElapsedMs = 0;
+  private acceptingChunks = false;
 
   constructor() {
     // Each time a final source chunk is committed, translate it and append.
@@ -93,6 +98,8 @@ export class StudioComponent implements OnDestroy {
 
   async startRecording(): Promise<void> {
     this.micError.set(null);
+    this.paused.set(false);
+    this.pausedElapsedMs = 0;
 
     if (!this.speech.supported) {
       this.micError.set(
@@ -105,14 +112,49 @@ export class StudioComponent implements OnDestroy {
       this.micError.set(
         'Whisper engine requires a backend + API key. Falling back to Web Speech API.',
       );
-      // We still proceed with Web Speech so the user sees something working.
     }
 
     // Reset panels
     this.speech.reset();
     this.translatedChunks.set([]);
 
-    // Step 1 — acquire mic + set up analyser for the live waveform.
+    const ok = await this.acquireMicAndStart();
+    if (!ok) return;
+
+    // Session timer starts fresh
+    this.sessionStartMs = Date.now();
+    this.sessionTime.set('00:00:00');
+    this.timerId = window.setInterval(() => this.tickTimer(), 1000);
+  }
+
+  pauseRecording(): void {
+    this.acceptingChunks = false;
+    this.pausedElapsedMs = Date.now() - this.sessionStartMs;
+    this.speech.stop();
+    this.teardownAnalyser();
+    this.micStream?.getTracks().forEach((t) => t.stop());
+    this.micStream = undefined;
+    if (this.timerId) {
+      clearInterval(this.timerId);
+      this.timerId = undefined;
+    }
+    this.paused.set(true);
+  }
+
+  async resumeRecording(): Promise<void> {
+    this.micError.set(null);
+
+    const ok = await this.acquireMicAndStart();
+    if (!ok) return; // paused stays true — user can retry Continue
+
+    this.paused.set(false);
+    // Resume timer from where it was paused
+    this.sessionStartMs = Date.now() - this.pausedElapsedMs;
+    this.timerId = window.setInterval(() => this.tickTimer(), 1000);
+  }
+
+  /** Returns true on success, false on mic acquisition failure. */
+  private async acquireMicAndStart(): Promise<boolean> {
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
@@ -122,22 +164,17 @@ export class StudioComponent implements OnDestroy {
           ? 'Microphone permission denied. Grant access in your browser and retry.'
           : `Could not access microphone: ${msg}`,
       );
-      return;
+      return false;
     }
     this.setupAnalyser(this.micStream);
-
-    // Step 2 — kick off the recognizer in the selected source language.
-    const sourceLang =
-      findLanguageByLabel(this.prefs.sourceLangLabel())?.bcp47 ?? 'en-US';
+    const sourceLang = findLanguageByLabel(this.prefs.sourceLangLabel())?.bcp47 ?? 'en-US';
+    this.acceptingChunks = true;
     this.speech.start(sourceLang);
-
-    // Step 3 — session timer
-    this.sessionStartMs = Date.now();
-    this.sessionTime.set('00:00:00');
-    this.timerId = window.setInterval(() => this.tickTimer(), 1000);
+    return true;
   }
 
   stopRecording(): void {
+    this.acceptingChunks = false;
     this.speech.stop();
     this.teardownAnalyser();
     this.micStream?.getTracks().forEach((t) => t.stop());
@@ -146,6 +183,15 @@ export class StudioComponent implements OnDestroy {
       clearInterval(this.timerId);
       this.timerId = undefined;
     }
+  }
+
+  stopSession(): void {
+    this.stopRecording();
+    this.paused.set(false);
+    this.pausedElapsedMs = 0;
+    this.speech.reset();
+    this.translatedChunks.set([]);
+    this.sessionTime.set('00:00:00');
   }
 
   clearSession(): void {
@@ -181,6 +227,7 @@ export class StudioComponent implements OnDestroy {
   // ---------- Internals ----------
 
   private translateChunk(chunk: string): void {
+    if (!this.acceptingChunks) return;
     const src = findLanguageByLabel(this.prefs.sourceLangLabel())?.short ?? 'en';
     const tgt = findLanguageByLabel(this.prefs.targetLangLabel())?.short ?? 'es';
     if (src === tgt) {

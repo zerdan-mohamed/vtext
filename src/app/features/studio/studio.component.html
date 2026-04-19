@@ -26,12 +26,15 @@
 
     <!-- Control center -->
     <div class="flex items-center gap-12">
-      <!-- Stop (clears) -->
-      <button (click)="stopRecording()" class="group flex flex-col items-center gap-2" [disabled]="!recording()">
+      <!-- Pause / Continue -->
+      <button
+        (click)="paused() ? resumeRecording() : pauseRecording()"
+        class="group flex flex-col items-center gap-2"
+        [disabled]="!recording() && !paused()">
         <div class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-white transition-all group-hover:bg-surface-variant border border-white/5 disabled:opacity-40">
-          <span class="material-symbols-outlined" style="font-size:28px">pause</span>
+          <span class="material-symbols-outlined" style="font-size:28px">{{ paused() ? 'play_arrow' : 'pause' }}</span>
         </div>
-        <span class="text-[10px] uppercase tracking-widest font-label font-bold text-neutral-500 group-hover:text-neutral-300">Pause</span>
+        <span class="text-[10px] uppercase tracking-widest font-label font-bold text-neutral-500 group-hover:text-neutral-300">{{ paused() ? 'Continue' : 'Pause' }}</span>
       </button>
 
       <!-- Record toggle -->
@@ -59,7 +62,7 @@
       </div>
 
       <!-- Clear session -->
-      <button (click)="clearSession()" class="group flex flex-col items-center gap-2">
+      <button (click)="stopSession()" class="group flex flex-col items-center gap-2">
         <div class="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-error transition-all group-hover:bg-error-container/20 border border-white/5">
           <span class="material-symbols-outlined" style="font-size:28px">stop</span>
         </div>
